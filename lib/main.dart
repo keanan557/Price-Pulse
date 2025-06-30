@@ -10,28 +10,29 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Price Comparison',
+      title: 'Price Pulse',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.deepPurple,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      // Ensuring home is const if its children are also const for build optimization
-      home: const PriceComparisonScreen(),
+      home: const PricePulseHomeScreen(),
     );
   }
 }
 
-class PriceComparisonScreen extends StatefulWidget {
-  const PriceComparisonScreen({super.key});
+class PricePulseHomeScreen extends StatefulWidget {
+  const PricePulseHomeScreen({super.key});
 
   @override
-  State<PriceComparisonScreen> createState() => _PriceComparisonScreenState();
+  State<PricePulseHomeScreen> createState() => _PricePulseHomeScreenState();
 }
 
-class _PriceComparisonScreenState extends State<PriceComparisonScreen> {
-  // In a real app, you'd fetch this data or load it from a model.
-  // For now, let's create some dummy data.
-  final List<Map<String, dynamic>> allProducts = const [ // Renamed to allProducts
+class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  // Dummy product data
+  final List<Map<String, dynamic>> _allProducts = [
     {
       'image': 'assets/shoprite_bread.png',
       'productName': 'Wholesome White Bread',
@@ -64,120 +65,306 @@ class _PriceComparisonScreenState extends State<PriceComparisonScreen> {
       'lastUpdated': '30 Min ago',
       'isBestPrice': false,
     },
+    // Add more products to make suggestions more diverse
+    {
+      'image': 'assets/shoprite_milk.png',
+      'productName': 'Full Cream Milk 1L',
+      'store': 'Shoprite',
+      'price': 'R22,00',
+      'lastUpdated': '25 Min ago',
+      'isBestPrice': false,
+    },
+    {
+      'image': 'assets/checkers_milk.png',
+      'productName': 'Low Fat Milk 1L',
+      'store': 'Checkers',
+      'price': 'R23,50',
+      'lastUpdated': '20 Min ago',
+      'isBestPrice': false,
+    },
+    {
+      'image': 'assets/picknpay_chicken.png',
+      'productName': 'Chicken Breast Fillets 500g',
+      'store': 'Pick n Pay',
+      'price': 'R65,00',
+      'lastUpdated': '1 Hour ago',
+      'isBestPrice': true,
+    },
+    {
+      'image': 'assets/woolworths_yogurt.png',
+      'productName': 'Greek Yogurt 1kg',
+      'store': 'Woolworths',
+      'price': 'R45,00',
+      'lastUpdated': '45 Min ago',
+      'isBestPrice': false,
+    },
   ];
 
-  // List to hold products filtered by search query
   List<Map<String, dynamic>> _filteredProducts = [];
-  // Controller for the search input field
-  final TextEditingController _searchController = TextEditingController();
+  List<String> _autocompleteSuggestions = [];
 
   @override
   void initState() {
     super.initState();
-    // Initialize filtered products with all products when the screen loads
-    _filteredProducts = List.from(allProducts);
-    // Add a listener to the search controller to filter products as the user types
-    _searchController.addListener(_filterProducts);
+    _filteredProducts = [];
+    _searchController.addListener(_onSearchChanged);
   }
 
-  // This method is called once for each State object when the dependencies of its
-  // BuildContext change. We can use it to pre-cache images.
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Pre-cache all product images. This helps prevent jank when images first appear,
-    // especially if they are large or numerous.
-    for (var product in allProducts) { // Use allProducts here
-      precacheImage(AssetImage(product['image']), context);
-    }
-  }
-
-  // Dispose of the controller when the widget is removed from the widget tree
   @override
   void dispose() {
-    _searchController.removeListener(_filterProducts);
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  // Method to filter products based on the search query
-  void _filterProducts() {
-    final query = _searchController.text.toLowerCase();
+  void _onSearchChanged() {
     setState(() {
-      if (query.isEmpty) {
-        _filteredProducts = List.from(allProducts);
-      } else {
-        _filteredProducts = allProducts.where((product) {
-          final productName = (product['productName'] as String).toLowerCase();
-          final store = (product['store'] as String).toLowerCase();
-          return productName.contains(query) || store.contains(query);
-        }).toList();
+      _searchQuery = _searchController.text;
+      _updateFilteredProductsAndSuggestions();
+    });
+  }
+
+  void _updateFilteredProductsAndSuggestions() {
+    if (_searchQuery.isEmpty) {
+      _filteredProducts = [];
+      _autocompleteSuggestions = [];
+    } else {
+      final queryLower = _searchQuery.toLowerCase();
+
+      // Filter products for the main display
+      _filteredProducts = _allProducts.where((product) {
+        final productNameLower = (product['productName'] as String).toLowerCase();
+        final storeLower = (product['store'] as String).toLowerCase();
+        return productNameLower.contains(queryLower) || storeLower.contains(queryLower);
+      }).toList();
+
+      // Generate autocomplete suggestions based on product names and stores
+      Set<String> uniqueSuggestions = {}; // Use a Set to avoid duplicate suggestions
+      for (var product in _allProducts) {
+        final productName = product['productName'] as String;
+        final storeName = product['store'] as String;
+
+        if (productName.toLowerCase().contains(queryLower)) {
+          uniqueSuggestions.add(productName);
+        }
+        if (storeName.toLowerCase().contains(queryLower)) {
+          uniqueSuggestions.add(storeName);
+        }
       }
+      _autocompleteSuggestions = uniqueSuggestions.take(5).toList(); // Limit to top 5 suggestions
+    }
+  }
+
+  void _selectSuggestion(String suggestion) {
+    setState(() {
+      _searchController.text = suggestion;
+      _searchController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _searchController.text.length),
+      ); // Move cursor to end
+      _searchQuery = suggestion; // Update search query
+      _autocompleteSuggestions = []; // Clear suggestions after selection
+      _updateFilteredProductsAndSuggestions(); // Update main product list based on selected suggestion
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Or a very light grey
-      body: SafeArea( // Ensures content doesn't go under status bar/notches
-        child: SingleChildScrollView( // Allows scrolling if content overflows
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20), // Spacing from top
-                const Text(
-                  'Price Comparison',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Search Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField( // Removed const as it now has a controller
-                    controller: _searchController, // Assign the controller
-                    decoration: const InputDecoration( // Kept const for decoration
-                      hintText: 'Search for products...',
-                      border: InputBorder.none,
-                      prefixIcon: Icon(Icons.search, color: Colors.grey),
+      backgroundColor: const Color(0xFF2E2D3B),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Bar with "Price Pulse"
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+              child: Row(
+                children: [
+                  Text(
+                    'Price Pulse',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple[200],
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Product List
-                // ListView.builder is efficient because it only builds visible items.
-                // Using shrinkWrap and NeverScrollableScrollPhysics is fine when
-                // inside a SingleChildScrollView and you want the outer scroll view to handle scrolling.
-                ListView.builder(
-                  shrinkWrap: true, // Important for ListView inside SingleChildScrollView
-                  physics: const NeverScrollableScrollPhysics(), // Disable ListView's own scrolling
-                  itemCount: _filteredProducts.length, // Use the filtered list here
-                  itemBuilder: (context, index) {
-                    final product = _filteredProducts[index]; // Get product from filtered list
-                    return ProductCard(
-                      // Ensure these values are passed correctly and are not null
-                      imagePath: product['image'] as String,
-                      productName: product['productName'] as String,
-                      store: product['store'] as String,
-                      price: product['price'] as String,
-                      lastUpdated: product['lastUpdated'] as String,
-                      isBestPrice: product['isBestPrice'] as bool,
-                    );
-                  },
-                ),
-              ],
+                  const Spacer(),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                ],
+              ),
             ),
-          ),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 30),
+                      // "Find the Best Prices" Section
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20.0),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEE7FF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Find the Best Prices',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4C4A5C),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Compare prices across all major South African\nretailers and save money on your shopping.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF4C4A5C),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // Search Bar
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Search for products...',
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                  border: InputBorder.none,
+                                  prefixIcon: Icon(Icons.search, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                            // Autocomplete Suggestions
+                            if (_autocompleteSuggestions.isNotEmpty && _searchQuery.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  constraints: BoxConstraints(
+                                      maxHeight:
+                                      _autocompleteSuggestions.length * 48.0), // Max height for suggestions
+                                  child: ListView.builder(
+                                    shrinkWrap: true, // Important for ListView inside Column
+                                    itemCount: _autocompleteSuggestions.length,
+                                    itemBuilder: (context, index) {
+                                      final suggestion = _autocompleteSuggestions[index];
+                                      return ListTile(
+                                        title: Text(suggestion),
+                                        onTap: () => _selectSuggestion(suggestion),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Conditional Product List
+                      if (_searchQuery.isNotEmpty)
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _filteredProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = _filteredProducts[index];
+                              return ProductCard(
+                                imagePath: product['image'],
+                                productName: product['productName'],
+                                store: product['store'],
+                                price: product['price'],
+                                lastUpdated: product['lastUpdated'],
+                                isBestPrice: product['isBestPrice'],
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        const Spacer(),
+
+                      // Disclaimer Section at the bottom
+                      Container(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.red[300], size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'Price Disclaimer\n',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red[300],
+                                          ),
+                                        ),
+                                        const TextSpan(
+                                          text: 'Prices are updated regularly but may vary from actual store prices. Please verify prices before making purchases.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'For more information, visit our Terms & Conditions',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -193,7 +380,7 @@ class ProductCard extends StatelessWidget {
   final String lastUpdated;
   final bool isBestPrice;
 
-  const ProductCard({ // Added const to the constructor for performance
+  const ProductCard({
     super.key,
     required this.imagePath,
     required this.productName,
@@ -207,11 +394,11 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
-      elevation: 0, // No shadow for a flatter look
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      color: Colors.white, // Card background color
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(15.0),
         child: Row(
@@ -223,21 +410,9 @@ class ProductCard extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-              ),
-              child: ClipRRect( // ClipRRect to apply border radius to the image itself
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset( // Use Image.asset for local assets
-                  imagePath,
+                image: DecorationImage(
+                  image: AssetImage(imagePath),
                   fit: BoxFit.cover,
-                  // Add a simple error builder for debugging image loading issues
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
@@ -249,8 +424,7 @@ class ProductCard extends StatelessWidget {
                   Text(
                     productName,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                       color: Colors.black87,
                     ),
                   ),
@@ -258,8 +432,9 @@ class ProductCard extends StatelessWidget {
                   Text(
                     store,
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -275,7 +450,7 @@ class ProductCard extends StatelessWidget {
                   Text(
                     'Last updated $lastUpdated',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 10,
                       color: Colors.grey,
                     ),
                   ),
@@ -286,7 +461,7 @@ class ProductCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.teal[400], // Greenish background
+                  color: Colors.teal[400],
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
