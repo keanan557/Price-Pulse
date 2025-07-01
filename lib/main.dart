@@ -30,8 +30,10 @@ class PricePulseHomeScreen extends StatefulWidget {
 class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  // New state variable for disclaimer visibility
+  bool _showDisclaimer = true; // Set to true by default to show it initially
 
-  // Dummy product data
+  // Dummy product data (unchanged)
   final List<Map<String, dynamic>> _allProducts = [
     {
       'image': 'assets/shoprite_bread.png',
@@ -65,7 +67,6 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
       'lastUpdated': '30 Min ago',
       'isBestPrice': false,
     },
-    // Add more products to make suggestions more diverse
     {
       'image': 'assets/shoprite_milk.png',
       'productName': 'Full Cream Milk 1L',
@@ -98,15 +99,32 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
       'lastUpdated': '45 Min ago',
       'isBestPrice': false,
     },
+    {
+      'image': 'assets/checkers_eggs.png',
+      'productName': 'Large Eggs 1 Dozen',
+      'store': 'Checkers',
+      'price': 'R35,00',
+      'lastUpdated': '15 Min ago',
+      'isBestPrice': false,
+    },
+    {
+      'image': 'assets/shoprite_sugar.png',
+      'productName': 'White Sugar 1kg',
+      'store': 'Shoprite',
+      'price': 'R25,00',
+      'lastUpdated': '10 Min ago',
+      'isBestPrice': false,
+    },
   ];
 
-  List<Map<String, dynamic>> _filteredProducts = [];
+  List<Map<String, dynamic>> _filteredProductsDisplay = [];
   List<String> _autocompleteSuggestions = [];
+  final List<String> _allStores = ['Shoprite', 'Checkers', 'Pick n Pay', 'Woolworths'];
 
   @override
   void initState() {
     super.initState();
-    _filteredProducts = [];
+    _filteredProductsDisplay = [];
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -126,20 +144,49 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
 
   void _updateFilteredProductsAndSuggestions() {
     if (_searchQuery.isEmpty) {
-      _filteredProducts = [];
+      _filteredProductsDisplay = [];
       _autocompleteSuggestions = [];
     } else {
       final queryLower = _searchQuery.toLowerCase();
 
-      // Filter products for the main display
-      _filteredProducts = _allProducts.where((product) {
-        final productNameLower = (product['productName'] as String).toLowerCase();
-        final storeLower = (product['store'] as String).toLowerCase();
-        return productNameLower.contains(queryLower) || storeLower.contains(queryLower);
-      }).toList();
+      _filteredProductsDisplay = [];
 
-      // Generate autocomplete suggestions based on product names and stores
-      Set<String> uniqueSuggestions = {}; // Use a Set to avoid duplicate suggestions
+      for (String store in _allStores) {
+        final productInStore = _allProducts.firstWhere(
+              (product) =>
+          (product['productName'] as String).toLowerCase().contains(queryLower) &&
+              (product['store'] as String).toLowerCase() == store.toLowerCase(),
+          orElse: () => {},
+        );
+
+        if (productInStore.isNotEmpty) {
+          _filteredProductsDisplay.add(productInStore);
+        } else {
+          _filteredProductsDisplay.add({
+            'image': 'assets/placeholder.png',
+            'productName': _searchQuery.isNotEmpty ? _searchQuery : 'Product',
+            'store': store,
+            'price': 'N/A',
+            'lastUpdated': 'Unavailable',
+            'isBestPrice': false,
+            'isUnavailable': true,
+          });
+        }
+      }
+
+      _filteredProductsDisplay.sort((a, b) {
+        final bool aUnavailable = a['isUnavailable'] ?? false;
+        final bool bUnavailable = b['isUnavailable'] ?? false;
+
+        if (aUnavailable && !bUnavailable) return 1;
+        if (!aUnavailable && bUnavailable) return -1;
+
+        if (a['isBestPrice'] == true && b['isBestPrice'] == false) return -1;
+        if (a['isBestPrice'] == false && b['isBestPrice'] == true) return 1;
+        return 0;
+      });
+
+      Set<String> uniqueSuggestions = {};
       for (var product in _allProducts) {
         final productName = product['productName'] as String;
         final storeName = product['store'] as String;
@@ -151,7 +198,7 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
           uniqueSuggestions.add(storeName);
         }
       }
-      _autocompleteSuggestions = uniqueSuggestions.take(5).toList(); // Limit to top 5 suggestions
+      _autocompleteSuggestions = uniqueSuggestions.take(5).toList();
     }
   }
 
@@ -160,10 +207,17 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
       _searchController.text = suggestion;
       _searchController.selection = TextSelection.fromPosition(
         TextPosition(offset: _searchController.text.length),
-      ); // Move cursor to end
-      _searchQuery = suggestion; // Update search query
-      _autocompleteSuggestions = []; // Clear suggestions after selection
-      _updateFilteredProductsAndSuggestions(); // Update main product list based on selected suggestion
+      );
+      _searchQuery = suggestion;
+      _autocompleteSuggestions = [];
+      _updateFilteredProductsAndSuggestions();
+    });
+  }
+
+  // Function to dismiss the disclaimer
+  void _dismissDisclaimer() {
+    setState(() {
+      _showDisclaimer = false;
     });
   }
 
@@ -213,11 +267,12 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 20), // Reduced height
                       // "Find the Best Prices" Section
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20.0),
+                        // Adjusted padding for a smaller container
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEEE7FF),
                           borderRadius: BorderRadius.circular(20),
@@ -228,23 +283,23 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
                             const Text(
                               'Find the Best Prices',
                               style: TextStyle(
-                                fontSize: 24,
+                                fontSize: 22, // Slightly reduced font size
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF4C4A5C),
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8), // Reduced height
                             const Text(
                               'Compare prices across all major South African\nretailers and save money on your shopping.',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13, // Slightly reduced font size
                                 color: Color(0xFF4C4A5C),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 15), // Reduced height
                             // Search Bar
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2), // Reduced vertical padding
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -272,9 +327,9 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
                                   ),
                                   constraints: BoxConstraints(
                                       maxHeight:
-                                      _autocompleteSuggestions.length * 48.0), // Max height for suggestions
+                                      _autocompleteSuggestions.length * 48.0),
                                   child: ListView.builder(
-                                    shrinkWrap: true, // Important for ListView inside Column
+                                    shrinkWrap: true,
                                     itemCount: _autocompleteSuggestions.length,
                                     itemBuilder: (context, index) {
                                       final suggestion = _autocompleteSuggestions[index];
@@ -291,13 +346,13 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Conditional Product List
-                      if (_searchQuery.isNotEmpty)
+                      // Conditional Product List or "No results found" message
+                      if (_searchQuery.isNotEmpty && _filteredProductsDisplay.isNotEmpty)
                         Expanded(
                           child: ListView.builder(
-                            itemCount: _filteredProducts.length,
+                            itemCount: _filteredProductsDisplay.length,
                             itemBuilder: (context, index) {
-                              final product = _filteredProducts[index];
+                              final product = _filteredProductsDisplay[index];
                               return ProductCard(
                                 imagePath: product['image'],
                                 productName: product['productName'],
@@ -305,60 +360,119 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
                                 price: product['price'],
                                 lastUpdated: product['lastUpdated'],
                                 isBestPrice: product['isBestPrice'],
+                                isUnavailable: product['isUnavailable'] ?? false,
+                                searchQuery: _searchQuery,
                               );
                             },
+                          ),
+                        )
+                      else if (_searchQuery.isNotEmpty && _filteredProductsDisplay.isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sentiment_dissatisfied,
+                                  size: 50,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'No results found for "${_searchQuery}"',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Please try a different search term.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       else
                         const Spacer(),
 
-                      // Disclaimer Section at the bottom
-                      Container(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.info_outline, color: Colors.red[300], size: 18),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: RichText(
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: 'Price Disclaimer\n',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red[300],
+                      // Disclaimer Section at the bottom (Conditional Visibility)
+                      if (_showDisclaimer)
+                        Container(
+                          padding: const EdgeInsets.only(bottom: 10, top: 10), // Added top padding
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.red[300], size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: 'Price Disclaimer\n',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.red[300],
+                                            ),
                                           ),
-                                        ),
-                                        const TextSpan(
-                                          text: 'Prices are updated regularly but may vary from actual store prices. Please verify prices before making purchases.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
+                                          const TextSpan(
+                                            text: 'Prices are updated regularly but may vary from actual store prices. Please verify prices before making purchases.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'For more information, visit our Terms & Conditions',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 10),
+                              // Buttons for Disclaimer
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end, // Align buttons to the right
+                                children: [
+                                  TextButton(
+                                    onPressed: _dismissDisclaimer, // Call dismiss function
+                                    child: Text(
+                                      'Dismiss',
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  ElevatedButton(
+                                    onPressed: _dismissDisclaimer, // Call dismiss function
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.deepPurple[400], // Use a primary color
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Accept'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10), // Added space below buttons
+                              const Text(
+                                'For more information, visit our Terms & Conditions',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -371,23 +485,26 @@ class _PricePulseHomeScreenState extends State<PricePulseHomeScreen> {
   }
 }
 
-// Separate Widget for a single Product Card for reusability and cleaner code
 class ProductCard extends StatelessWidget {
-  final String imagePath;
+  final String? imagePath;
   final String productName;
   final String store;
   final String price;
   final String lastUpdated;
   final bool isBestPrice;
+  final bool isUnavailable;
+  final String? searchQuery;
 
   const ProductCard({
     super.key,
-    required this.imagePath,
+    this.imagePath,
     required this.productName,
     required this.store,
     required this.price,
     required this.lastUpdated,
     this.isBestPrice = false,
+    this.isUnavailable = false,
+    this.searchQuery,
   });
 
   @override
@@ -398,23 +515,32 @@ class ProductCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      color: Colors.white,
+      color: isUnavailable ? Colors.grey[100] : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(15.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image
             Container(
               width: 80,
               height: 80,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                image: DecorationImage(
-                  image: AssetImage(imagePath),
+                color: isUnavailable ? Colors.grey[200] : null,
+                image: imagePath != null && !isUnavailable
+                    ? DecorationImage(
+                  image: AssetImage(imagePath!),
                   fit: BoxFit.cover,
-                ),
+                )
+                    : null,
               ),
+              child: isUnavailable
+                  ? Icon(
+                Icons.not_interested,
+                color: Colors.grey[500],
+                size: 40,
+              )
+                  : null,
             ),
             const SizedBox(width: 15),
             Expanded(
@@ -422,42 +548,43 @@ class ProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    productName,
-                    style: const TextStyle(
+                    isUnavailable ? (searchQuery != null && searchQuery!.isNotEmpty ? searchQuery! : 'Product') : productName,
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Colors.black87,
+                      color: isUnavailable ? Colors.grey[600] : Colors.black87,
+                      fontStyle: isUnavailable ? FontStyle.italic : null,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     store,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: isUnavailable ? Colors.grey[800] : Colors.black,
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    price,
-                    style: const TextStyle(
+                    isUnavailable ? 'Unavailable' : price,
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: isUnavailable ? Colors.red[300] : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Last updated $lastUpdated',
-                    style: const TextStyle(
+                    isUnavailable ? 'Product is unavailable at this store' : 'Last updated $lastUpdated',
+                    style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey,
+                      color: isUnavailable ? Colors.grey[500] : Colors.grey,
                     ),
                   ),
                 ],
               ),
             ),
-            if (isBestPrice)
+            if (isBestPrice && !isUnavailable)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
