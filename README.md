@@ -1,6 +1,6 @@
 Price-Pulse 
 
-![Screenshot of Homepage](https://github.com/keanan557/images/blob/main/New%20Project.png)
+![Screenshot of Homepage](https://github.com/keanan557/images/blob/main/price-pulse.png)
 
 Price Comparison Application
 
