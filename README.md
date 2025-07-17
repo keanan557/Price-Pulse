@@ -1,16 +1,18 @@
-# pricepulse
+Price-Pulse 
 
-A new Flutter project.
+[![Screenshot of Homepage](https://github.com/keanan557/images/blob/main/New%20Project.png)]
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+Price Comparison Application
 
-A few resources to get you started if this is your first Flutter project:
+## Live Demo
+[Link to the live deployed website](https://bodyshop-invoice.vercel.app/)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Technologies Used
+- **Front-end:** Flutter ,Dart
+- **Backend:** Firebase
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+
+## Instructions
+
+Click on release , then download apk .
